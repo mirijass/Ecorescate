@@ -554,7 +554,7 @@ MonoBehaviour:
   textoProgresoOrganica: {fileID: 635122783}
   textoProgresoPlastico: {fileID: 1027993093}
   textoProgresoCarton: {fileID: 261041895}
-  tiempoLimite: 90
+  tiempoLimite: 60
 --- !u!4 &114783169
 Transform:
   m_ObjectHideFlags: 0
