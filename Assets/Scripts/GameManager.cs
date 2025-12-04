@@ -20,7 +20,7 @@ public class GameManager : MonoBehaviour
     [Tooltip("Marcar si estamos en el Nivel 2 o superior (Activa la secuencia obligatoria).")]
     public bool isLevel2 = false;
 
-    // ⭐ NUEVO: FLAG PARA NIVEL 3 (Se activa automáticamente en Start)
+    // Variable para el Nivel 3
     private bool isLevel3 = false;
 
     [Header("Configuración Nivel 2: Secuencia")]
@@ -30,7 +30,7 @@ public class GameManager : MonoBehaviour
     private int indiceSecuenciaActual = 0;
     private bool tieneBasuraEnMano = false;
 
-    // INVENTARIO DEL JUGADOR (Necesario para controlar Nivel 2)
+    // INVENTARIO DEL JUGADOR
     [Header("Inventario Actual")]
     public int invOrganico = 0;
     public int invPlastico = 0;
@@ -39,6 +39,9 @@ public class GameManager : MonoBehaviour
     [Header("UI y Paneles")]
     public GameObject panelGanador;
     public GameObject panelPerdedor;
+    
+    [Header("Control de Pausa")]
+    public GameObject panelPausa; // Campo para enlazar el panel de pausa
 
     public TextMeshProUGUI textoTemporizador;
     public TextMeshProUGUI textoProgresoOrganica;
@@ -50,14 +53,14 @@ public class GameManager : MonoBehaviour
     private float tiempoRestante;
     private bool juegoTerminado = false;
 
-    private const int REQUERIMIENTO = 4;
+    // REQUERIMIENTOS 
+    private const int REQUERIMIENTO = 4; // Requerimiento Nivel 1 y 2
+    private const int REQUERIMIENTO_NIVEL3_INDIVIDUAL = 5; // Requerimiento Nivel 3 (5 de cada uno)
+
     private int organicaCount = 0;
     private int plasticoCount = 0;
     private int cartonCount = 0;
 
-    // ⭐ NUEVO: CONTADOR Y REQUERIMIENTO PARA NIVEL 3
-    private int nivel3BasuraCount = 0;
-    private const int REQUERIMIENTO_NIVEL3 = 5;
 
     void Awake()
     {
@@ -81,11 +84,11 @@ public class GameManager : MonoBehaviour
             gameAudioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        // --- ⭐ LÓGICA NIVEL 3: DETECCIÓN DE ESCENA ---
-        // Comprueba si la escena se llama "Nivel003" para activar la lógica especial.
+        // --- LÓGICA NIVEL 3: DETECCIÓN DE ESCENA ---
         if (SceneManager.GetActiveScene().name == "Nivel003")
         {
             isLevel3 = true;
+            isLevel2 = false; // Desactivamos la lógica secuencial para Nivel 3
         }
         else
         {
@@ -101,7 +104,6 @@ public class GameManager : MonoBehaviour
         organicaCount = 0;
         plasticoCount = 0;
         cartonCount = 0;
-        nivel3BasuraCount = 0; // Reiniciar contador de Nivel 3
 
         // Reiniciar Inventario 
         invOrganico = 0;
@@ -113,6 +115,7 @@ public class GameManager : MonoBehaviour
 
         if (panelGanador != null) panelGanador.SetActive(false);
         if (panelPerdedor != null) panelPerdedor.SetActive(false);
+        if (panelPausa != null) panelPausa.SetActive(false); // Asegurar que el Panel de Pausa esté oculto
 
         ActualizarProgresoUI();
     }
@@ -137,10 +140,42 @@ public class GameManager : MonoBehaviour
             tiempoRestante = 0;
             TerminarJuego(false);
         }
+        
+        // Pausa con la tecla ESC
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (Time.timeScale == 0f)
+            {
+                ResumeGame();
+            }
+            else
+            {
+                PauseGame();
+            }
+        }
     }
 
     // =================================================================
-    //	⭐ FUNCIÓN DE PENALIZACIÓN DE TIEMPO (Llamada por la Piedra) 💥
+    //	FUNCIONES DE PAUSA Y REANUDACIÓN ⏸️
+    // =================================================================
+
+    public void PauseGame()
+    {
+        if (juegoTerminado) return; 
+
+        Time.timeScale = 0f; // Detiene el tiempo
+        if (panelPausa != null) panelPausa.SetActive(true); // Muestra el panel
+    }
+
+    public void ResumeGame()
+    {
+        Time.timeScale = 1f; // Reanuda el tiempo
+        if (panelPausa != null) panelPausa.SetActive(false); // Oculta el panel
+    }
+
+
+    // =================================================================
+    //	FUNCIÓN DE PENALIZACIÓN DE TIEMPO (Llamada por la Piedra) 💥
     // =================================================================
 
     public void RestarTiempo(float cantidad)
@@ -164,18 +199,10 @@ public class GameManager : MonoBehaviour
     {
         if (juegoTerminado) return false;
 
-        // --- LÓGICA NIVEL 3 (Prioridad): Recoger = Contar directamente ---
-        // En el Nivel 3 se cuenta al recoger (no al depositar).
-        if (isLevel3)
-        {
-            RecolectarBasura(tipo);
-            return true;
-        }
-
-        // --- LÓGICA NIVEL 1 (Sencilla: Recoger = Contar) ---
+        // Lógica de recolección para Nivel 1 y 3 (Solo al inventario, NO cuenta)
         if (!isLevel2)
         {
-            RecolectarBasura(tipo);
+            IncrementarInventario(tipo);
             return true;
         }
 
@@ -198,20 +225,25 @@ public class GameManager : MonoBehaviour
     }
 
     // =================================================================
-    //	FUNCIÓN DE DEPÓSITO 
+    //	FUNCIÓN DE DEPÓSITO 🚮
     // =================================================================
 
     public void DepositarBasura(TipoBasura tipoDeposito)
     {
         if (juegoTerminado) return;
 
-        // Nivel 3 solo cuenta al recoger.
-        if (isLevel3) return;
+        // Lógica de depósito para Nivel 1 y 3 (Se cuenta solo si se deposita correctamente)
+        if (isLevel3 || !isLevel2)
+        {
+            // Si tiene el ítem en inventario, lo decrementa y lo cuenta.
+            if (DecrementarInventario(tipoDeposito))
+            {
+                RecolectarBasura(tipoDeposito);
+            }
+            return;
+        }
 
-        // Nivel 1 no usa esta lógica de inventario.
-        if (!isLevel2) return;
-
-        // Lógica de Depósito de Nivel 2:
+        // Lógica de Depósito de Nivel 2 (Secuencial):
         if (!tieneBasuraEnMano)
         {
             return;
@@ -232,7 +264,7 @@ public class GameManager : MonoBehaviour
 
 
     // =================================================================
-    //	FUNCIONES DE INVENTARIO PARA NIVEL 2
+    //	FUNCIONES DE INVENTARIO
     // =================================================================
 
     private void IncrementarInventario(TipoBasura tipo)
@@ -266,20 +298,10 @@ public class GameManager : MonoBehaviour
     //	FUNCIONES BASE DE CONTEO Y UI
     // =================================================================
 
-    // Esta función incrementa los contadores finales.
     public void RecolectarBasura(TipoBasura tipo)
     {
         if (juegoTerminado) return;
-
-        // Lógica de conteo de TOTAL para el Nivel 3 (solo si es Nivel 3)
-        if (isLevel3)
-        {
-            nivel3BasuraCount++; // Seguimos contando el total para la condición de victoria
-        }
-
-        // Lógica de conteo por tipo (Aplica para todos los niveles para llevar registro individual)
-        // **IMPORTANTE:** Se eliminó la condición 'if (!isLevel3)' para que los contadores 
-        // individuales se actualicen en Nivel 3, permitiendo mostrar el progreso por tipo.
+        
         switch (tipo)
         {
             case TipoBasura.Organica:
@@ -299,34 +321,25 @@ public class GameManager : MonoBehaviour
 
     private void ActualizarProgresoUI()
     {
-        // ⭐ LÓGICA NIVEL 3: Muestra el progreso INDIVIDUAL sobre el REQUERIMIENTO TOTAL
-        if (isLevel3)
-        {
-            // Ahora mostramos el conteo individual sobre el requerimiento total de Nivel 3.
-            if (textoProgresoOrganica != null) textoProgresoOrganica.text = organicaCount + "/" + REQUERIMIENTO_NIVEL3;
-            if (textoProgresoPlastico != null) textoProgresoPlastico.text = plasticoCount + "/" + REQUERIMIENTO_NIVEL3;
-            if (textoProgresoCarton != null) textoProgresoCarton.text = cartonCount + "/" + REQUERIMIENTO_NIVEL3;
-        }
-        else
-        {
-            // Lógica original para Niveles 1/2: Muestra el conteo por tipo
-            if (textoProgresoOrganica != null) textoProgresoOrganica.text = organicaCount + "/" + REQUERIMIENTO;
-            if (textoProgresoPlastico != null) textoProgresoPlastico.text = plasticoCount + "/" + REQUERIMIENTO;
-            if (textoProgresoCarton != null) textoProgresoCarton.text = cartonCount + "/" + REQUERIMIENTO;
-        }
+        // Usa el requerimiento individual del Nivel 3 si aplica
+        int requerimientoActual = isLevel3 ? REQUERIMIENTO_NIVEL3_INDIVIDUAL : REQUERIMIENTO;
+
+        if (textoProgresoOrganica != null) textoProgresoOrganica.text = organicaCount + "/" + requerimientoActual;
+        if (textoProgresoPlastico != null) textoProgresoPlastico.text = plasticoCount + "/" + requerimientoActual;
+        if (textoProgresoCarton != null) textoProgresoCarton.text = cartonCount + "/" + requerimientoActual;
     }
 
     private void CheckVictory()
     {
-        // CONDICIÓN DE VICTORIA BASE (Niveles 1 y 2)
-        bool victoriaBase = (organicaCount >= REQUERIMIENTO &&
-                             plasticoCount >= REQUERIMIENTO &&
-                             cartonCount >= REQUERIMIENTO);
+        // Determinamos el requerimiento
+        int requerimientoVictoria = isLevel3 ? REQUERIMIENTO_NIVEL3_INDIVIDUAL : REQUERIMIENTO;
 
-        // ⭐ CONDICIÓN DE VICTORIA NIVEL 3 (5 ítems en total)
-        bool victoriaNivel3 = isLevel3 && (nivel3BasuraCount >= REQUERIMIENTO_NIVEL3);
+        // Condición de victoria: alcanzar el requerimiento en cada tipo
+        bool victoriaTotal = (organicaCount >= requerimientoVictoria &&
+                             plasticoCount >= requerimientoVictoria &&
+                             cartonCount >= requerimientoVictoria);
 
-        if (victoriaBase || victoriaNivel3)
+        if (victoriaTotal)
         {
             TerminarJuego(true);
         }
