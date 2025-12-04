@@ -1,44 +1,66 @@
-// ARCHIVO: BoteBasura.cs
-
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class BoteBasura : MonoBehaviour
 {
-    // Define el tipo que acepta este bote. Usa la ruta completa del Enum.
     public GameManager.TipoBasura tipoAceptado;
 
     private GameManager manager;
 
     void Start()
     {
-        // Busca y guarda la referencia al GameManager al inicio
         manager = FindObjectOfType<GameManager>();
+
         if (manager == null)
-        {
-            Debug.LogError("BoteBasura no encontró el GameManager.");
-        }
+            Debug.LogError("BoteBasura no encontrÃ³ GameManager.");
     }
 
-    // Usamos OnTriggerStay para detectar si el jugador permanece dentro del trigger
-    void OnTriggerStay(Collider other)
+    private void OnTriggerStay(Collider other)
     {
-        // 1. Verificar si el objeto que toca es el jugador
         if (other.CompareTag("Player"))
         {
-            // 2. Verificar si el jugador presiona la tecla 'E'
             if (Input.GetKeyDown(KeyCode.E))
             {
-                // 3. Notificar al GameManager
-                if (manager != null)
+                if (manager == null) return;
+
+                // VERIFICAR INVENTARIO CORRECTO
+                bool tieneBasura = false;
+
+                switch (tipoAceptado)
                 {
-                    // Llama al método correcto en el GameManager
-                    manager.RecolectarBasura(tipoAceptado);
-
-                    Debug.Log("¡Depósito de " + tipoAceptado.ToString() + " exitoso!");
-
-                    // Nota: Aquí deberías añadir lógica para QUITAR la basura del inventario
-                    // o para DESTRUIR el objeto de basura que el jugador "lleva".
+                    case GameManager.TipoBasura.Organica:
+                        tieneBasura = manager.invOrganico > 0;
+                        break;
+                    case GameManager.TipoBasura.Plastico:
+                        tieneBasura = manager.invPlastico > 0;
+                        break;
+                    case GameManager.TipoBasura.Carton:
+                        tieneBasura = manager.invCarton > 0;
+                        break;
                 }
+
+                if (!tieneBasura)
+                {
+                    Debug.Log("No tienes basura de este tipo para depositar.");
+                    return;
+                }
+
+                // DEPOSITAR Y RESTAR DEL INVENTARIO
+                switch (tipoAceptado)
+                {
+                    case GameManager.TipoBasura.Organica:
+                        manager.invOrganico--;
+                        break;
+                    case GameManager.TipoBasura.Plastico:
+                        manager.invPlastico--;
+                        break;
+                    case GameManager.TipoBasura.Carton:
+                        manager.invCarton--;
+                        break;
+                }
+
+                manager.RecolectarBasura(tipoAceptado);
+
+                Debug.Log("Depositada basura: " + tipoAceptado);
             }
         }
     }
