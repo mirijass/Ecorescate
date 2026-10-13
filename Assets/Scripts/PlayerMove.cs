@@ -16,9 +16,6 @@ public class PlayerMove : MonoBehaviour
         x = Input.GetAxis("Horizontal"); // Entrada A/D o flechas izquierda/derecha
         y = Input.GetAxis("Vertical");   // Entrada W/S o flechas arriba/abajo
 
-        // 2. ROTACIÓN (Giro)
-        // Gira el objeto en el eje Y (vertical) usando la entrada horizontal (x) y rotationSpeed
-        // Se multiplica por Time.deltaTime para que sea independiente de los FPS.
         transform.Rotate(0, x * rotationSpeed * Time.deltaTime, 0);
 
         // 3. MOVIMIENTO (Traslación)
